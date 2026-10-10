@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Only these Google accounts may edit the site / read bookings.
+    // Add every admin Gmail address here (must be created in Firebase Authentication).
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in [
+          "YOUR-ADMIN-GMAIL@gmail.com"
+        ];
+    }
+
+    match /siteConfig/{doc} { allow read: if true;  allow write: if isAdmin(); }
+    match /menuItems/{doc}  { allow read: if true;  allow write: if isAdmin(); }
+    match /coupons/{doc}    { allow read: if true;  allow write: if isAdmin(); }
+    // Anyone may create a booking, but only a well-formed, "pending" one — nobody can read, change or delete them except the admin.
+    match /bookings/{doc} {
+      allow read, update, delete: if isAdmin();
+      allow create: if request.resource.data.status == "pending"
+        && request.resource.data.name is string && request.resource.data.name.size() <= 120
+        && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
+        && request.resource.data.requests is string && request.resource.data.requests.size() <= 1000
+        && request.resource.data.guests is number && request.resource.data.guests >= 1 && request.resource.data.guests <= 60;
+    }
+  }
+}
